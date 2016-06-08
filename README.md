@@ -9,4 +9,4 @@ Run `mvn clean install`. Requires Maven 3.
 
 ###Sample Usage
 
-`java -jar WebVideoDownloader.jar -f inputFile.txt -d "/home/kyle/Downloads"
+`java -jar WebVideoDownloader.jar -f inputFile.txt -d "/home/kyle/Downloads"`
