@@ -1,0 +1,8 @@
+YouTube Song Scraper
+====================
+
+Download music from YouTube!
+
+*Compilation
+
+Run `mvn clean install`. Requires Maven 3.
