@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 public class Main {
 
   public static void main(String[] args) {
+    args = new String[] {"-f","inputFile.txt","-d","/home/kyle/Downloads"};
     final DownloadData downloadData = parseArguments(args);
 
     downloadData.getInputFile().parallelStream().forEach(songName -> {
@@ -36,10 +37,10 @@ public class Main {
     String downloadFolder = null;
     for (int i = 0; i < args.length - 1; i++) {
       switch (args[i].trim()) {
-      case "-f":
-        inputFile = args[i + 1];
-      case "-d":
-        downloadFolder = args[i + 1];
+        case "-f":
+          inputFile = args[i + 1];
+        case "-d":
+          downloadFolder = args[i + 1];
       }
     }
 

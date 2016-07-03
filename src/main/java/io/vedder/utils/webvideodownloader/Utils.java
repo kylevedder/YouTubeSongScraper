@@ -17,10 +17,11 @@ public class Utils {
 
   private static Random r = new Random();
   private static final String[] USER_AGENT_LIST = new String[] {
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A",
-      "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1",
-      "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
-      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36" };
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36"};
+  // "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1",
+  // "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0
+  // Safari/537.36",
+  // };
 
   public static String getRandomUserAgent() {
     return USER_AGENT_LIST[r.nextInt(USER_AGENT_LIST.length)];
@@ -40,8 +41,7 @@ public class Utils {
       con.setRequestMethod("GET");
       con.setRequestProperty("User-Agent", getRandomUserAgent());
 
-      BufferedReader in = new BufferedReader(
-          new InputStreamReader(con.getInputStream()));
+      BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
       String inputLine;
       StringBuffer response = new StringBuffer();
 
@@ -57,8 +57,7 @@ public class Utils {
     } catch (IOException e) {
       e.printStackTrace();
     }
-
-    return "";
+    throw new IllegalStateException("Unable to read!");
   }
 
   public static List<String> readFile(String filePath) {
@@ -68,8 +67,7 @@ public class Utils {
     } catch (IOException e) {
       e.printStackTrace();
     }
-    throw new IllegalStateException(
-        "File " + filePath + " unable to be opened");
+    throw new IllegalStateException("File " + filePath + " unable to be opened");
   }
 
   private static void sleep(long milis) {

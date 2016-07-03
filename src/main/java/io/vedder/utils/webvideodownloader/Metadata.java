@@ -12,6 +12,7 @@ import javax.imageio.ImageIO;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 public class Metadata {
   private final String band;
@@ -25,25 +26,32 @@ public class Metadata {
 
     boolean isValidTitle = false;
 
+    String requestUrl = getImageSearchUrl(songName);
+
     isValidTitleLoop: while (!isValidTitle) {
-      Document thumbnailVideoSearch = Jsoup
-          .parse(Utils.sendGet(getImageSearchUrl(songName)));
 
-      String thumbnailVideoID = thumbnailVideoSearch.select("div#results")
-          .get(0).select("ol > li").get(2).select("div").get(0)
-          .attr("data-context-item-id");
+      Document thumbnailVideoSearch = Jsoup.parse(Utils.sendGet(requestUrl));
 
-      Document thumbnailVideo = Jsoup
-          .parse(Utils.sendGet(getVideoUrl(thumbnailVideoID)));
+      Element videoReference = thumbnailVideoSearch.select("div#results").get(0)
+          .select("div.yt-lockup-dismissable > div.yt-lockup-content > h3.yt-lockup-title").get(0)
+          .select("a[href]").get(0);
 
-      String videoTitle = thumbnailVideo.select("title").get(0).text()
-          .replace(" - YouTube", "");
+      String thumbnailVideoID = videoReference.attr("href").replace("/watch?v=", "");
+
+      System.out.println("Thumbnail ID: \"" + thumbnailVideoID + "\"");
+
+      Document thumbnailVideo = Jsoup.parse(Utils.sendGet(getVideoUrl(thumbnailVideoID)));
+
+      String videoTitle = thumbnailVideo.select("title").get(0).text();
+
+      System.out.println(videoTitle);
 
       if (videoTitle.equals("YouTube") || videoTitle.equals(" - YouTube")) {
-        System.out.println(
-            "Invalid title for song \"" + songName + "\", retrying...");
+        System.out.println("Invalid title for song \"" + songName + "\", retrying...");
         continue isValidTitleLoop; // Retry
       }
+
+      videoTitle = videoTitle.replace(" - YouTube", "");
 
       String[] splitVideoTitle = videoTitle.split("-");
 
@@ -52,12 +60,19 @@ public class Metadata {
       }
 
       band = splitVideoTitle[0].trim();
-      title = splitVideoTitle[1].replaceAll("\\(([^)]+)\\)", "")
-          .replaceAll("\\[([^)]+)\\]", "").trim();
+      title =
+          splitVideoTitle[1].replaceAll("\\(([^)]+)\\)", "").replaceAll("\\[([^)]+)\\]", "").trim();
 
       if (band != null && title != null) {
         isValidTitle = true;
       } else {
+        if (band == null) {
+          System.out.println("Invalid band for \"" + songName + "\"... retrying");
+        }
+        if (title == null) {
+          System.out.println("Invalid title for \"" + songName + "\"... retrying");
+        }
+
         continue isValidTitleLoop; // Retry
       }
 
@@ -87,8 +102,7 @@ public class Metadata {
 
   private static String getImageSearchUrl(String songName) {
     try {
-      return "https://www.youtube.com/results?search_query="
-          + URLEncoder.encode(songName, "UTF-8");
+      return "https://www.youtube.com/results?search_query=" + URLEncoder.encode(songName, "UTF-8");
     } catch (UnsupportedEncodingException e) {
       return null;
     }

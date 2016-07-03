@@ -12,11 +12,12 @@ import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
+import org.jsoup.nodes.Element;
 
 import com.mpatric.mp3agic.ID3v2;
 import com.mpatric.mp3agic.ID3v24Tag;
@@ -43,18 +44,16 @@ public class MP3 {
     return metadata;
   }
 
-  public static MP3 build(String songName, Metadata metadata,
-      String destinationFolder) {
+  public static MP3 build(String songName, Metadata metadata, String destinationFolder) {
 
     List<String> lyricVideoIDList = getLyricVideoIdList(songName);
 
-    String tmpPath = System.getProperty("java.io.tmpdir") + "/"
-        + metadata.getBand().replaceAll("/", "") + " - "
-        + metadata.getTitle().replaceAll("/", "") + "_tmp.mp3";
+    String tmpPath =
+        System.getProperty("java.io.tmpdir") + "/" + metadata.getBand().replaceAll("/", "") + " - "
+            + metadata.getTitle().replaceAll("/", "") + "_tmp.mp3";
     downloadMp3(lyricVideoIDList, tmpPath, songName);
 
-    String destPath = destinationFolder + "/"
-        + metadata.getTitle().replaceAll("/", "") + ".mp3";
+    String destPath = destinationFolder + "/" + metadata.getTitle().replaceAll("/", "") + ".mp3";
     addMetadata(tmpPath, destPath, metadata);
     return new MP3(destPath, metadata);
   }
@@ -65,24 +64,30 @@ public class MP3 {
   }
 
   private static List<String> getLyricVideoIdList(String songName) {
-    Document lyricVideoSearch = Jsoup
-        .parse(Utils.sendGet(getVideoLyricSearchUrl(songName)));
+    String searchUrl = getVideoLyricSearchUrl(songName);
+    System.out.println("MP3 Search URL: " + searchUrl);
+    Document lyricVideoSearch = Jsoup.parse(Utils.sendGet(searchUrl));
 
-    Elements lyricVideoIDElements = lyricVideoSearch.select("div#results")
-        .get(0).select("ol > li");
 
-    List<String> lyricVideoIDList = new ArrayList<>();
+    lyricVideoSearch.select("div#results").get(0)
+        .select("div.yt-lockup-dismissable > div.yt-lockup-content > h3.yt-lockup-title").get(0)
+        .select("a[href]").get(0);
 
-    for (int i = 2; i < 5; i++) {
-      lyricVideoIDList.add(lyricVideoIDElements.get(i).select("div").get(0)
-          .attr("data-context-item-id"));
+    List<Element> idElements = new ArrayList<>(5);
+
+    for (int i = 0; i < 5; i++) {
+      idElements.add(lyricVideoSearch.select("div#results").get(0)
+          .select("div.yt-lockup-dismissable > div.yt-lockup-content > h3.yt-lockup-title").get(i)
+          .select("a[href]").get(0));
     }
 
-    return lyricVideoIDList;
+    List<String> ids = idElements.stream().map(e -> e.attr("href").replace("/watch?v=", ""))
+        .collect(Collectors.toList());
+    return ids;
+
   }
 
-  private static void addMetadata(String tempPath, String finalPath,
-      Metadata metadata) {
+  private static void addMetadata(String tempPath, String finalPath, Metadata metadata) {
     Mp3File mp3file;
     try {
       mp3file = new Mp3File(tempPath);
@@ -109,58 +114,73 @@ public class MP3 {
     }
   }
 
-  private static void downloadMp3(List<String> lyricVideoIDList, String dest,
-      String videoName) {
+  private static void downloadMp3(List<String> lyricVideoIDList, String dest, String videoName) {
 
     videoIdLoop: for (String videoId : lyricVideoIDList) {
-      URLConnection conn;
-      try {
-
-        Utils.sendGet(getMP3SkullUrl(videoId));
-        boolean isFinished = false;
-        String pollResponseJson = Utils
-            .sendGet(getMp3SkullStartPollUrl(videoId));
-        for (int count = 0; !isFinished; count++) {
-          JSONObject pollResponse = new JSONObject(pollResponseJson);
-          if (pollResponse.getJSONObject("progress").getString("progressName")
-              .equals("Not allowed in your country.")) {
-            System.out.println("Video for song \"" + videoName
-                + "\" not allowed in this country, trying new video...");
-            continue videoIdLoop; // Try Next Video Id
-          }
-          isFinished = pollResponse.getBoolean("finished");
-          if (!isFinished) {
-            pollResponseJson = Utils.sendGet(getMp3SkullPollUrl(videoId));
-          }
-          if (count >= 5) {
-            System.out.println("Polling MP3Skullfor video \"" + videoName
-                + "\". Status: " + pollResponse.getJSONObject("progress")
-                    .getString("progressName"));
-            count = 0;
-          }
-        }
-
-        conn = new URL(getMP3SkullDownloadUrl(videoId)).openConnection();
-        conn.setRequestProperty("User-Agent", Utils.getRandomUserAgent());
-
-        InputStream is = conn.getInputStream();
-
-        OutputStream outstream = new FileOutputStream(new File(dest));
-        byte[] buffer = new byte[4096];
-        int len;
-        while ((len = is.read(buffer)) > 0) {
-          outstream.write(buffer, 0, len);
-        }
-        outstream.close();
-        return;
-      } catch (MalformedURLException e) {
-        e.printStackTrace();
-      } catch (IOException e) {
-        e.printStackTrace();
+      if (videoId.isEmpty()) {
+        System.out.println("Empty video ID..");
+        continue videoIdLoop;
+      } else {
+        System.out.println(videoId);
       }
+      Utils.sendGet(getMP3SkullUrl(videoId));
+      boolean isFinished = false;
+      String pollResponseJson = Utils.sendGet(getMp3SkullStartPollUrl(videoId));
+      for (int count = 0; !isFinished; count++) {
+        JSONObject pollResponse = new JSONObject(pollResponseJson);
+        if (pollResponse.getJSONObject("progress").getString("progressName")
+            .equals("Not allowed in your country.")) {
+          System.out.println("Video for song \"" + videoName
+              + "\" not allowed in this country, trying new video...");
+          continue videoIdLoop; // Try Next Video Id
+        }
+        isFinished = pollResponse.getBoolean("finished");
+        if (!isFinished) {
+          pollResponseJson = Utils.sendGet(getMp3SkullPollUrl(videoId));
+        }
+        System.out.println("Polling MP3Skull for video \"" + videoName + "\". Status: "
+            + pollResponse.getJSONObject("progress").getString("progressName"));
+        if (count >= 15) {
+          count = 0;
+          System.out.println("Trying video download");
+          if (tryVideoDownload(videoId, dest)) {
+            System.out.println("Video download success!");
+            return;
+          } else {
+            System.out.println("Video download failed...");
+          }
+        }
+      }
+      System.out.println("Downloading \"" + videoName + "\"");
+      tryVideoDownload(videoId, dest);
+      return;
     }
-    throw new IllegalStateException(
-        "Unable to load any videos for name \"" + videoName + "\"");
+    throw new IllegalStateException("Unable to load any videos for name \"" + videoName + "\"");
+  }
+
+  private static boolean tryVideoDownload(String videoId, String dest) {
+    URLConnection conn;
+    try {
+      String mp3SkullDownloadUrl = getMP3SkullDownloadUrl(videoId);
+      conn = new URL(mp3SkullDownloadUrl).openConnection();
+      conn.setRequestProperty("User-Agent", Utils.getRandomUserAgent());
+
+      InputStream is = conn.getInputStream();
+
+      OutputStream outstream = new FileOutputStream(new File(dest));
+      byte[] buffer = new byte[4096];
+      int len;
+      while ((len = is.read(buffer)) > 0) {
+        outstream.write(buffer, 0, len);
+      }
+      outstream.close();
+      return true;
+    } catch (MalformedURLException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return false;
   }
 
   private static String getMP3SkullUrl(String videoId) {
@@ -183,7 +203,7 @@ public class MP3 {
   private static String getVideoLyricSearchUrl(String songName) {
     try {
       return "https://www.youtube.com/results?search_query="
-          + URLEncoder.encode(songName + " lyrics", "UTF-8");
+          + URLEncoder.encode(songName + " lyrics -vevo -chipmunk", "UTF-8");
     } catch (UnsupportedEncodingException e) {
       return null;
     }
