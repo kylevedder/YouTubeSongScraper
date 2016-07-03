@@ -203,7 +203,7 @@ public class MP3 {
   private static String getVideoLyricSearchUrl(String songName) {
     try {
       return "https://www.youtube.com/results?search_query="
-          + URLEncoder.encode(songName + " lyrics -vevo -chipmunk", "UTF-8");
+          + URLEncoder.encode(songName + " lyrics -vevo -cover -chipmunk", "UTF-8");
     } catch (UnsupportedEncodingException e) {
       return null;
     }
